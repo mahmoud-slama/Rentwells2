@@ -1,0 +1,686 @@
+import React,{useState} from 'react';
+
+import Welcome from './screens/Welcome';
+//react navigator stack
+import RootStack from './navigators/RootStack';
+// aaploading
+import AppLoading from 'expo-app-loading';
+
+//async-storage
+import AsyncStorage from '@react-native-async-storage/async-storage';
+//creadentials context
+
+import { CredentialsContext } from './components/CredentialsContext';
+
+
+export default function App() {
+const [appReady,setAppReady]=useState(false);
+const [storeCredentials,setStoreCredentials]=useState("")
+const checkLoginCredentials=()=>{
+AsyncStorage.getItem('RentWheels')
+.then((result)=>{
+if(result!==null){
+setStoreCredentials(JSON.parse(result))
+}else{
+  setStoreCredentials(null);
+}
+  
+})
+.catch(error=>console.log(error))
+
+
+}
+if(!appReady){
+return(
+  <AppLoading
+startAsync={checkLoginCredentials}
+onFinish={()=>setAppReady(true)}
+onError={console.warn}
+
+  />
+)
+
+}
+
+
+  return (
+    <CredentialsContext.Provider value={{storeCredentials,setStoreCredentials}
+    }>
+      <RootStack/>
+    </CredentialsContext.Provider>
+
+  );
+}
+
+
+import React, { useState, useContext } from 'react';
+
+import { StatusBar } from 'expo-status-bar';
+import { Formik } from 'formik';
+import { Ionicons,Octicons } from '@expo/vector-icons';
+import { Colors } from '../components/Styles';
+import { View,TouchableOpacity,ActivityIndicator } from "react-native";
+import {
+  StyleContainer,
+  InnerContainer,
+ PageTitle, 
+  SubTitle,
+  StyledFormArea,
+  LeftItem,
+  StyledTextInput,
+  StyledInnerLabel,
+  RightIcon,
+StyledButton,
+ButtonText,
+Line,
+ExtraView,
+ExtraText,  
+TextLink,
+TextLinkContent,
+MsgBox
+,
+} from '../components/Styles';
+// Async storage
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// credentials context
+import { CredentialsContext } from './../components/CredentialsContext';
+
+
+// Colors
+const { band, darkLight,primary } = Colors;
+//Datatimepicker
+
+import DateTimePicker from '@react-native-community/datetimepicker';
+//api client
+import axios from "axios";
+
+//keyboard avoiding view
+import KeyboardAvoidWrapper from "../components/KeyboardAvaidinWrapper";;
+
+const Signup = ({ navigation }) => {
+  const [HidePassword, setHidePassword] = useState(true);
+  const [show, setShow] = useState(false);
+  const [date, setDate] = useState(new Date(2000, 0, 1));
+  const [message, setMessage] = useState();
+  const [messageType, setMessageType] = useState();
+
+ 
+  // Actual date of birth to be sent
+  const [dob,setDob]=useState();
+ // credentials context
+ const {storedCredentials, setStoredCredentials} = useContext(CredentialsContext);
+
+  const onChange=(event,selectDate)=>{
+    const currentDate =selectDate || date;
+    setShow(false);
+    setDate(currentDate);
+    setDob(currentDate);
+  }
+  const showDatePicker=()=>{
+    setShow('date')
+  }
+
+
+ /// Form handling
+ const handleSignup = (credentials, setSubmitting) => {
+  handleMessage(null);
+  const url = 'http://192.168.1.18:3000/user/signup';
+  axios
+    .post(url, credentials)
+    .then((response) => {
+      const result = response.data;
+      const { status, message, data } = result;
+
+      if (status !== 'SUCCESS') {
+        handleMessage(message, status);
+      } else {
+        persistLogin({ ...data } ,message, status);
+      }
+      setSubmitting(false);
+    })
+    .catch((error) => {
+      setSubmitting(false);
+      handleMessage('An error occurred. Check your network and try again');
+      console.log(error.toJSON());
+    });
+};
+
+const handleMessage = (message, type = '') => {
+  setMessage(message);
+  setMessageType(type);
+};
+
+// Persisting login after signup
+const persistLogin = (credentials, message, status) => {
+  AsyncStorage.setItem('RentWheels', JSON.stringify(credentials))
+    .then(() => {
+      handleMessage(message, status);
+      setStoredCredentials(credentials);
+    })
+    .catch((error) => {
+      handleMessage('Persisting login failed');
+      console.log(error)
+    });
+};
+
+  
+    return (
+    <KeyboardAvoidWrapper>
+    <StyleContainer>
+      <StatusBar style="dark" />
+      <InnerContainer>
+      <PageTitle>RentWheels</PageTitle>
+        <SubTitle>Account Login</SubTitle>
+     {show && (
+      <DateTimePicker
+testID="dateTimePicker"
+value={date}
+mode="date"
+is24Hour={true}
+display="default"
+onChange={onChange}
+
+
+      />
+     )}
+     
+     
+        <Formik
+            initialValues={{ name: '', email: '', DateOfBirth: '', password: '', confirmPassword: '' }}
+
+
+          onSubmit={(values,{setSubmitting}) => {
+values={...values,DateOfBirth:dob}
+
+            if (values.email == '' || values.password == ''||values.name == '' || values.DateOfBirth == ''|| values.confirmPassword=='') {
+                handleMessage('Please fill in all fields');
+                setSubmitting(false);
+              } else if(values.password!==values.confirmPassword){
+                handleMessage('password do not match');
+                setSubmitting(false);
+              }
+               else {
+                handleSignup(values, setSubmitting);
+              } }}
+        >
+          {({ handleChange, handleBlur, handleSubmit, values,isSubmitting }) => (
+            <StyledFormArea>
+            <MyTextInput
+                label="Full Name"
+                icon="person"
+                placeholder="mahmoud/nadia/marwen"
+                placeholderTextColor={darkLight}
+                onChangeText={handleChange('name')}
+                onBlur={handleBlur('name')}
+                value={values.name}
+              />
+             
+              <MyTextInput
+                label="Email address"
+                icon="mail"
+                placeholder="andy@gmail.com"
+                placeholderTextColor={darkLight}
+                onChangeText={handleChange('email')}
+                onBlur={handleBlur('email')}
+                value={values.email}
+                keyboardType="email-address"
+              />
+              
+              <MyTextInput
+                label="Date of Birth"
+                icon="calendar"
+                placeholder="YYYY-MM-DD"
+                placeholderTextColor={darkLight}
+                onChangeText={handleChange('DateOfBirth')}
+                onBlur={handleBlur('DateOfBirth')}
+                value={ dob? dob.toDateString():``}
+                
+                isDate={true}
+                editable={false}
+                showDatePicker={showDatePicker}
+              />
+              <MyTextInput
+                label="Password"
+                icon="lock"
+                placeholder="******"
+                placeholderTextColor={darkLight}
+                onChangeText={handleChange('password')}
+                onBlur={handleBlur('password')}
+                value={values.password}
+                secureTextEntry={HidePassword}
+                isPassword={true}
+                HidePassword={HidePassword}
+                setHidePassword={setHidePassword}
+              />
+              <MyTextInput
+                label="confirmPassword"
+                icon="lock"
+                placeholder="******"
+                placeholderTextColor={darkLight}
+                onChangeText={handleChange('confirmPassword')}
+                onBlur={handleBlur('confirmPassword')}
+                value={values.confirmPassword}
+                secureTextEntry={HidePassword}
+                isPassword={true}
+                HidePassword={HidePassword}
+                setHidePassword={setHidePassword}
+              />
+             <MsgBox type={messageType}>{message}</MsgBox>
+
+{!isSubmitting && (
+  <StyledButton onPress={handleSubmit}>
+    <ButtonText>Signup</ButtonText>
+  </StyledButton>
+)}
+{isSubmitting && (
+  <StyledButton disabled={true}>
+    <ActivityIndicator size="large" color={primary} />
+  </StyledButton>
+)}
+
+
+                <Line />
+
+              
+              <ExtraView>
+                <ExtraText>
+                  already have an account  
+                </ExtraText>
+                <TextLink onPress={()=>navigation.navigate('Login')}>
+                  <TextLinkContent>Login  </TextLinkContent>
+                </TextLink>
+              </ExtraView>
+              
+            </StyledFormArea>
+          )}
+        </Formik>
+      </InnerContainer>
+    </StyleContainer>
+    </KeyboardAvoidWrapper>
+  );
+};
+
+
+const MyTextInput = ({ isDate,isPassword,showDatePicker,label, icon,HidePassword,setHidePassword, ...props }) => {
+  return (
+    <View>
+      <LeftItem>
+        <Octicons name={icon} size={30} color={band} />
+      </LeftItem>
+      <StyledInnerLabel>{label}</StyledInnerLabel>
+      {isDate&&(
+<TouchableOpacity onPress={showDatePicker}>
+<StyledTextInput {...props} />
+</TouchableOpacity>
+
+      )}
+      {!isDate&& <StyledTextInput {...props} /> }
+
+      
+      {  isPassword &&
+        <RightIcon onPress={()=>setHidePassword(!HidePassword)}>
+<Ionicons name={HidePassword?'md-eye-off':'md-eye'} size={30} color={darkLight} />
+        </RightIcon>
+      }
+    </View>
+  );
+};
+
+export default Signup;
+import React,{useState,useContext} from "react";
+import { StatusBar } from 'expo-status-bar';
+import { Formik } from 'formik';
+import { Ionicons,Octicons,Fontisto } from '@expo/vector-icons';
+import { Colors } from '../components/Styles';
+
+import { View,Text,StyleSheet,ActivityIndicator,Image,TouchableOpacity } from "react-native";
+import {
+  StyleContainer,
+  InnerContainer,
+  PageLogo,
+  PageTitle,
+  SubTitle,
+  StyledFormArea,
+  LeftItem,
+  StyledTextInput,
+  StyledInnerLabel,
+  RightIcon,
+StyledButton,
+ButtonText,
+MsgBox,
+Line,
+ExtraView,
+ExtraText,  
+TextLink,
+TextLinkContent
+,
+} from '../components/Styles';
+
+
+//async-storage
+import AsyncStorage from '@react-native-async-storage/async-storage';
+//creadentials context
+
+import { CredentialsContext } from './../components/CredentialsContext';
+
+// Colors
+const { band, darkLight,primary } = Colors;
+
+//keyboard avoiding view
+import KeyboardAvoidWrapper from "../components/KeyboardAvaidinWrapper";;
+// Api client
+import axios from "axios";
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from "expo-web-browser";
+
+const Login = ({navigation}) => {
+    const[HidePassword,setHidePassword]=useState(true);
+const [message,setMessage]=useState();
+const [messageType,setMessageType]=useState();
+const [googleSubmitting, setGoogleSubmitting] = useState(false);
+
+  // credentials context
+  const {storedCredentials, setStoredCredentials} = useContext(CredentialsContext);
+
+  const handleLogin = (credentials, setSubmitting) => {
+    handleMessage(null);
+    const   url='http://192.168.1.18:3000/user/signin';
+    axios
+      .post(url, credentials)
+      .then((response) => {
+        const result = response.data;
+        const { status, message, data } = result;
+
+        if (status !== 'SUCCESS') {
+          handleMessage(message, status);
+        } else {
+          persistLogin({ ...data[0] }, message, status);
+        }
+        setSubmitting(false);
+      })
+      .catch((error) => {
+        setSubmitting(false);
+        handleMessage('An error occurred. Check your network and try again');
+        console.log(error.toJSON());
+      });
+      const handleMessage = (message, type = '') => {
+        setMessage(message);
+        setMessageType(type);
+      };
+  };
+
+/*const handleGoogleSignin =()=>{
+  setGoogleSubmitting(true);
+  const config={
+    iosClientId:`526962540665-pn6kfim6bo7b0lo2rml525kthvkkil6v.apps.googleusercontent.com`,
+  androidClientId:`526962540665-7a143psd391rjtvkt76pnoiik3pmocdn.apps.googleusercontent.com`,
+ scopes:['profile','email'], 
+}
+Google.logInAsync(config)
+.then((result) => {
+  const { type, user } = result;
+  if (type == 'success') {
+    const { email, name, photoUrl } = user;
+    persistLogin({ email, name, photoUrl }, 'Google Signin successful', 'SUCCESS');
+  } else {
+    handleMessage('Google SignIn was cancelled');
+  }
+  setGoogleSubmitting(false);
+})
+.catch((error) => {
+  handleMessage('An error occurred. Check your network and try again');
+  console.log(error);
+  setGoogleSubmitting(false);
+});
+
+
+}*/
+const [accessToken, setAccessToken] = React.useState(null);
+  const [user, setUser] = React.useState(null);
+  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
+    clientId: "526962540665-vfnjf9vv9lpqv4lldrgonv7760mf6g6q.apps.googleusercontent.com",
+    iosClientId: "526962540665-mlhi80uj551028mvrcruuellefg1gf6c.apps.googleusercontent.com",
+    androidClientId: "526962540665-shb3f33p5dhq79p6vec8psmhaql1l4m9.apps.googleusercontent.com"
+  });
+  React.useEffect(() => {
+    if(response?.type === "success") {
+      setAccessToken(response.authentication.accessToken);
+      accessToken && fetchUserInfo();
+      persistLogin({ email, name, photoUrl }, 'Google signin successful', 'SUCCESS');
+
+    }
+  }, [response, accessToken])
+
+  async function fetchUserInfo() {
+    let response = await fetch("https://www.googleapis.com/userinfo/v2/me", {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    const useInfo = await response.json();
+    setUser(useInfo);
+  }
+
+  const ShowUserInfo = () => {
+    if(user) {
+      return(
+        <View style={{flex: 1, alignItems: 'center', justifyContent: 'center'}}>
+          <Text style={{fontSize: 35, fontWeight: 'bold', marginBottom: 20}}>Welcome</Text>
+          <Image source={{uri: user.picture}} style={{width: 100, height: 100, borderRadius: 50}} />
+          <Text style={{fontSize: 20, fontWeight: 'bold'}}>{user.name}</Text>
+        </View>
+      )
+    }
+  }  
+
+
+    // Persisting login
+    const persistLogin = (credentials, message, status) => {
+      AsyncStorage.setItem('RentWheels', JSON.stringify(credentials))
+        .then(() => {
+          handleMessage(message, status);
+          setStoredCredentials(credentials);
+        })
+        .catch((error) => {
+          handleMessage('Persisting login failed');
+          console.log(error);
+        });
+    };
+    return (
+    <KeyboardAvoidWrapper>
+    <StyleContainer>
+      <StatusBar style="dark" />
+      <InnerContainer>
+        <PageLogo resizeMode="cover" source={require('../assets/logo.png')} />
+        <PageTitle>RentWheels</PageTitle>
+        <SubTitle>Account Login</SubTitle>
+       
+        <Formik
+            initialValues={{ email: '', password: '' }}
+            onSubmit={(values, { setSubmitting }) => {
+              if (values.email == '' || values.password == '') {
+                handleMessage('Please fill in all fields');
+                setSubmitting(false);
+              } else {
+                handleLogin(values, setSubmitting);
+              }
+            }}
+          >
+          {({ handleChange, handleBlur, handleSubmit, values,isSubmitting }) => (
+            <StyledFormArea>
+              <MyTextInput
+                label="Email address"
+                icon="mail"
+                placeholder="andy@gmail.com"
+                placeholderTextColor={darkLight}
+                onChangeText={handleChange('email')}
+                onBlur={handleBlur('email')}
+                value={values.email}
+                keyboardType="email-address"
+              />
+              <MyTextInput
+                label="Password"
+                icon="lock"
+                placeholder="******"
+                placeholderTextColor={darkLight}
+                onChangeText={handleChange('password')}
+                onBlur={handleBlur('password')}
+                value={values.password}
+                secureTextEntry={HidePassword}
+                isPassword={true}
+                HidePassword={HidePassword}
+                setHidePassword={setHidePassword}
+              />
+        <MsgBox type={messageType}>{message}</MsgBox>
+
+{!isSubmitting && (
+  <StyledButton onPress={handleSubmit}>
+    <ButtonText>Login</ButtonText>
+  </StyledButton>
+)}
+{isSubmitting && (
+  <StyledButton disabled={true}>
+    <ActivityIndicator size="large" color={primary} />
+  </StyledButton>
+)}
+
+<Line />
+                <Line />
+                {user && <ShowUserInfo />}
+      {user === null}
+              
+                {!googleSubmitting && (
+                  <StyledButton 
+                  disabled={!request}
+          onPress={() => {
+            promptAsync();
+            }} 
+                   google={true}>
+                    <Fontisto name="google" size={25} color={primary} />
+                    <Text google={true} style={styles.text1} >Sign with google</Text>
+
+                  </StyledButton>
+                )}
+                {googleSubmitting && (
+                  <StyledButton disabled={true} google={true}>
+                    <ActivityIndicator size="large" color={primary} />
+                  </StyledButton>
+                )}
+
+     
+              <ExtraView>
+                <ExtraText>
+                  Don't have an account already? 
+                </ExtraText>
+                <TextLink onPress={()=>navigation.navigate('Signup')}>
+                  <TextLinkContent >Sign up </TextLinkContent>
+                </TextLink>
+              </ExtraView>
+              
+            </StyledFormArea>
+          )}
+        </Formik>
+      </InnerContainer>
+    </StyleContainer>
+    </KeyboardAvoidWrapper>
+  );
+};
+const styles=StyleSheet.create({
+  text1:{
+    color:"#ffffff",
+
+    textAlign:"right",
+
+  },
+  
+  
+  })
+
+const MyTextInput = ({ label,isPassword, icon,HidePassword,setHidePassword, ...props }) => {
+  return (
+    <View>
+      <LeftItem>
+        <Octicons name={icon} size={30} color={band} />
+      </LeftItem>
+      <StyledInnerLabel>{label}</StyledInnerLabel>
+      <StyledTextInput {...props} />
+      {  isPassword &&
+        <RightIcon onPress={()=>setHidePassword(!HidePassword)}>
+<Ionicons name={HidePassword?'md-eye-off':'md-eye'} size={30} color={darkLight} />
+        </RightIcon>
+      }
+    </View>
+  );
+};
+
+export default Login;
+import React, { useContext } from 'react';
+import { StatusBar } from 'expo-status-bar';
+
+import {
+  InnerContainer,
+  PageTitle,
+  SubTitle,
+  StyledFormArea,
+  
+StyledButton,
+ButtonText,
+Line,
+
+WelcomeContainer,
+WelcomeImage,
+Avatar,
+
+} from '../components/Styles';
+
+// Async storage
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// credentials context
+import { CredentialsContext } from './../components/CredentialsContext';
+
+const Welcome = () => {
+  // credentials context
+  const { storedCredentials, setStoredCredentials } = useContext(CredentialsContext);
+
+  const { name, email, photoUrl } = storedCredentials;
+
+  const AvatarImg = photoUrl
+    ? {
+        uri: photoUrl,
+      }
+    : require('../assets/logo.png');
+
+  const clearLogin = () => {
+    AsyncStorage.removeItem('RentWheels')
+      .then(() => {
+        setStoredCredentials("");
+      })
+      .catch((error) => console.log(error));
+  };
+
+  return (
+    <>
+      <StatusBar style="light" />
+      <InnerContainer>
+        <WelcomeImage resizeMode="cover" source={require('../assets/vdlf-location-voiture.jpg')} />
+
+        <WelcomeContainer>
+          <PageTitle welcome={true}>Welcome! Buddy</PageTitle>
+          <SubTitle welcome={true}>{name || 'Olga Simpson'}</SubTitle>
+          <SubTitle welcome={true}>{email || 'olgasimp@gmail.com'}</SubTitle>
+
+          <StyledFormArea>
+            <Avatar resizeMode="cover" source={AvatarImg} />
+
+            <Line />
+            <StyledButton onPress={clearLogin}>
+              <ButtonText>Logout</ButtonText>
+            </StyledButton>
+          </StyledFormArea>
+        </WelcomeContainer>
+      </InnerContainer>
+    </>
+  );
+};
+
+export default Welcome;
